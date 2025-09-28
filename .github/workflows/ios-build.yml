@@ -18,36 +18,20 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'   # стабильная версия с Dart 3.4
+          flutter-version: '3.22.0'
           channel: 'stable'
 
       # 3. Тянем зависимости
       - name: Get dependencies
         run: flutter pub get
 
-      # 4. Собираем iOS без подписи
-      - name: Build iOS app (unsigned)
-        run: |
-          flutter build ios --release --no-codesign
-          # дополнительный вызов, чтобы Xcode не пытался подписывать
-          xcodebuild -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -sdk iphoneos \
-            -configuration Release \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+      # 4. Собираем IPA без подписи
+      - name: Build unsigned IPA
+        run: flutter build ipa --release --no-codesign
 
-      # 5. Упаковываем Runner.app в .ipa
-      - name: Create IPA
-        run: |
-          mkdir -p Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
-          zip -r app-unsigned.ipa Payload
-
-      # 6. Загружаем артефакт
+      # 5. Загружаем артефакт
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-unsigned-ipa
-          path: app-unsigned.ipa
+          path: build/ios/ipa/*.ipa

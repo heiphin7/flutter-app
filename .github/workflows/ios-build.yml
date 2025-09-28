@@ -1,7 +1,7 @@
 name: Build iOS IPA (unsigned)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # запуск вручную
   push:
     branches: [ main ]
 
@@ -10,33 +10,37 @@ jobs:
     runs-on: macos-latest
 
     steps:
+      # 1. Клонируем репозиторий
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # 2. Устанавливаем Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0'
           channel: 'stable'
 
+      # 3. Ставим зависимости
       - name: Get dependencies
         run: flutter pub get
 
-      # ✅ правильная сборка .app
-      - name: Build .app (unsigned)
-        run: flutter build ios --release --no-codesign
+      # 4. Собираем под симулятор (⚠️ этот билд нельзя поставить на iPhone!)
+      - name: Build for iOS Simulator
+        run: flutter build ios --release --simulator
 
-      # 📦 пакуем в IPA
+      # 5. Упаковываем в IPA
       - name: Create IPA
         run: |
           mkdir -p Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
-          zip -r Runner.ipa Payload
+          cp -R build/ios/iphonesimulator/Runner.app Payload/Runner.app
+          zip -r Runner-sim.ipa Payload
           mkdir -p build/ios/ipa
-          mv Runner.ipa build/ios/ipa/
+          mv Runner-sim.ipa build/ios/ipa/
 
+      # 6. Загружаем артефакт
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-unsigned-ipa
-          path: build/ios/ipa/Runner.ipa
+          path: build/ios/ipa/Runner-sim.ipa

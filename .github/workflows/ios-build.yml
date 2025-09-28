@@ -10,33 +10,45 @@ jobs:
     runs-on: macos-latest
 
     steps:
+      # 1. Клонируем репозиторий
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # 2. Устанавливаем Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0'
           channel: 'stable'
 
+      # 3. Тянем зависимости
       - name: Get dependencies
         run: flutter pub get
 
-      # 1. Собираем .app (без подписи)
-      - name: Build .app (no codesign)
+      # 4. Собираем .app без подписи напрямую через xcodebuild
+      - name: Build iOS app (no codesign)
         run: |
-          flutter build ios --release --no-codesign
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM=""
 
-      # 2. Пакуем .app вручную в IPA
-      - name: Create IPA
+      # 5. Пакуем Runner.app в IPA
+      - name: Create unsigned IPA
         run: |
           mkdir -p Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
+          cp -R build/Release-iphoneos/Runner.app Payload/Runner.app
           zip -r Runner.ipa Payload
           mkdir -p build/ios/ipa
           mv Runner.ipa build/ios/ipa/
 
-      # 3. Загружаем артефакт
+      # 6. Загружаем артефакт
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

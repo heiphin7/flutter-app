@@ -10,67 +10,47 @@ jobs:
     runs-on: macos-latest
 
     steps:
+      # 1. Клонируем репозиторий
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # 2. Устанавливаем Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0'
           channel: 'stable'
 
+      # 3. Тянем зависимости
       - name: Get dependencies
         run: flutter pub get
 
-      # 1. Собираем .app без подписи
+      # 4. Собираем .app без подписи напрямую через xcodebuild
       - name: Build iOS app (no codesign)
         run: |
-          flutter build ios --release --no-codesign
-
-      # 2. Архивируем в .xcarchive без подписи
-      - name: Archive app
-        run: |
-          xcodebuild archive \
+          xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
-            -configuration Release \
             -sdk iphoneos \
-            -archivePath build/ios/Runner.xcarchive \
-            CODE_SIGNING_ALLOWED=NO \
+            -configuration Release \
+            build \
+            CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM=""
 
-      # 3. Экспортируем ipa без подписи
-      - name: Export unsigned IPA
+      # 5. Пакуем Runner.app в IPA
+      - name: Create unsigned IPA
         run: |
-          cat > exportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>ad-hoc</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>compileBitcode</key>
-            <false/>
-            <key>stripSwiftSymbols</key>
-            <true/>
-          </dict>
-          </plist>
-          EOF
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/Runner.app Payload/Runner.app
+          zip -r Runner.ipa Payload
+          mkdir -p build/ios/ipa
+          mv Runner.ipa build/ios/ipa/
 
-          xcodebuild -exportArchive \
-            -archivePath build/ios/Runner.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist exportOptions.plist \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
-
-      # 4. Загружаем артефакт
+      # 6. Загружаем артефакт
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-unsigned-ipa
-          path: build/ios/ipa/*.ipa
+          path: build/ios/ipa/Runner.ipa
